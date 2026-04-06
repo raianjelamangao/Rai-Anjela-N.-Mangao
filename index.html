@@ -1,0 +1,259 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Calculator App</title>
+  <style>
+    * { 
+      margin: 0; 
+      padding: 0; 
+      box-sizing: border-box; }
+
+    body { 
+      font-family: Arial, sans-serif; 
+      padding: 30px; 
+      background: #c33cf8; 
+      min-height: 100vh; 
+      display: flex; 
+      justify-content: center; 
+      align-items: center; }
+
+    .calculator { 
+      width: 320px; 
+      background: #fff; 
+      border: 2px solid #ccc; 
+      border-radius: 8px; 
+      box-shadow: 0 5px 15px rgba(0,0,0,0.2); 
+      overflow: hidden; }
+
+    .display { 
+      background: #e8e8e8; 
+      padding: 15px; 
+      text-align: right; 
+      border-bottom: 1px solid #ccc; }
+
+    .display-value { 
+      font-size: 2rem; 
+      color: #000; 
+      font-weight: normal; 
+      font-family: 'Courier New', monospace; 
+      word-wrap: break-word; 
+      word-break: break-all; 
+      min-height: 30px; }
+
+    .display-expression { 
+      font-size: 0.9rem; 
+      color: #666; 
+      margin-bottom: 5px; }
+
+    .buttons { 
+      display: grid; 
+      grid-template-columns: repeat(4, 1fr); 
+      gap: 1px; 
+      background: #ccc; 
+      padding: 1px; }
+
+    button { 
+      padding: 18px; 
+      font-size: 1.2rem; 
+      font-weight: bold; 
+      border: none; 
+      cursor: pointer; 
+      background: #333; 
+      color: #fff; 
+      transition: all 0.1s; 
+      font-family: Arial, sans-serif; }
+
+    button:hover { 
+      background: #555; }
+
+    button:active { 
+      background: #111; 
+      transform: translateY(1px); }
+
+    .num { 
+      background: #333; }
+
+    .op { 
+      background: #ff6600; 
+      color: #fff; }
+
+    .op:hover { 
+      background: #cc5500; }
+
+    .equals { 
+      background: #ff6600; 
+      grid-column: span 2; }
+
+    .equals:hover { 
+      background: #cc5500; }
+
+    .clear { 
+      background: #666; 
+      grid-column: span 2; }
+
+    .clear:hover { 
+      background: #888; }
+
+    .error { 
+      color: #d32f2f; 
+      font-size: 0.9rem; 
+      text-align: center; 
+      padding: 10px; 
+      display: none; 
+      background: #ffebee; 
+      border-top: 1px solid #ccc; }
+
+    .error.show { 
+      display: block; }
+  </style>
+</head>
+<body>
+  <div class="calculator">
+    <div class="display">
+      <div class="display-expression" id="expression"></div>
+      <div class="display-value" id="display">0</div>
+    </div>
+    <div class="error" id="error"></div>
+    <div class="buttons">
+      <button class="clear" onclick="clearCalculator()">CLEAR</button>
+      <button class="op" onclick="appendOperator('divide')">÷</button>
+      <button class="op" onclick="appendOperator('power')">^</button>
+      
+      <button class="num" onclick="appendNumber('7')">7</button>
+      <button class="num" onclick="appendNumber('8')">8</button>
+      <button class="num" onclick="appendNumber('9')">9</button>
+      <button class="op" onclick="appendOperator('multiply')">×</button>
+      
+      <button class="num" onclick="appendNumber('4')">4</button>
+      <button class="num" onclick="appendNumber('5')">5</button>
+      <button class="num" onclick="appendNumber('6')">6</button>
+      <button class="op" onclick="appendOperator('subtract')">−</button>
+      
+      <button class="num" onclick="appendNumber('1')">1</button>
+      <button class="num" onclick="appendNumber('2')">2</button>
+      <button class="num" onclick="appendNumber('3')">3</button>
+      <button class="op" onclick="appendOperator('add')">+</button>
+      
+      <button class="num" onclick="appendNumber('0')" style="grid-column: span 2;">0</button>
+      <button class="num" onclick="appendNumber('.')">.</button>
+      <button class="equals" onclick="calculate()">=</button>
+    </div>
+  </div>
+
+  <script>
+    let display = document.getElementById('display');
+    let expression = document.getElementById('expression');
+    let errorDiv = document.getElementById('error');
+    let currentValue = '0';
+    let firstNumber = null;
+    let operator = null;
+    let shouldResetDisplay = false;
+
+    function updateDisplay() {
+      display.textContent = currentValue;
+    }
+
+    function appendNumber(num) {
+      errorDiv.classList.remove('show');
+      if (shouldResetDisplay) {
+        currentValue = num === '.' ? '0.' : num;
+        shouldResetDisplay = false;
+      } else {
+        if (num === '.') {
+          if (!currentValue.includes('.')) {
+            currentValue += num;
+          }
+        } else {
+          currentValue = currentValue === '0' ? num : currentValue + num;
+        }
+      }
+      updateDisplay();
+    }
+
+    function appendOperator(op) {
+      errorDiv.classList.remove('show');
+      if (firstNumber === null) {
+        firstNumber = parseFloat(currentValue);
+      } else if (!shouldResetDisplay) {
+        performCalculation();
+      }
+      operator = op;
+      shouldResetDisplay = true;
+      const opSymbols = { add: '+', subtract: '−', multiply: '×', divide: '÷', power: '^' };
+      expression.textContent = firstNumber + ' ' + opSymbols[op];
+    }
+
+    async function performCalculation() {
+      if (firstNumber === null || operator === null) return;
+      
+      const secondNumber = parseFloat(currentValue);
+      try {
+        const response = await fetch('/api/calc', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ a: firstNumber, b: secondNumber, op: operator })
+        });
+
+        if (!response.ok) {
+          const body = await response.json();
+          throw new Error(body.error || 'Calculation error');
+        }
+
+        const data = await response.json();
+        currentValue = String(data.result);
+        firstNumber = data.result;
+        updateDisplay();
+      } catch (err) {
+        errorDiv.textContent = 'Error: ' + err.message;
+        errorDiv.classList.add('show');
+        currentValue = '0';
+        updateDisplay();
+      }
+    }
+
+    async function calculate() {
+      if (operator === null || firstNumber === null) {
+        return;
+      }
+      await performCalculation();
+      operator = null;
+      firstNumber = null;
+      shouldResetDisplay = true;
+      expression.textContent = '';
+    }
+
+    function clearCalculator() {
+      errorDiv.classList.remove('show');
+      currentValue = '0';
+      firstNumber = null;
+      operator = null;
+      shouldResetDisplay = false;
+      expression.textContent = '';
+      updateDisplay();
+    }
+
+    // Keyboard support
+    document.addEventListener('keydown', (e) => {
+      if (e.key >= '0' && e.key <= '9') appendNumber(e.key);
+      if (e.key === '.') appendNumber('.');
+      if (e.key === '+') appendOperator('add');
+      if (e.key === '-') appendOperator('subtract');
+      if (e.key === '*') appendOperator('multiply');
+      if (e.key === '/') { e.preventDefault(); appendOperator('divide'); }
+      if (e.key === '^') appendOperator('power');
+      if (e.key === 'Enter' || e.key === '=') { e.preventDefault(); calculate(); }
+      if (e.key === 'Backspace') {
+        if (currentValue.length > 1) {
+          currentValue = currentValue.slice(0, -1);
+        } else {
+          currentValue = '0';
+        }
+        updateDisplay();
+      }
+      if (e.key === 'Escape') clearCalculator();
+    });
+  </script>
+</body>
+</html>
